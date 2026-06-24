@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Journal</title>
+  <meta name="description" content="Persoenliches Trading-Journal fuer Krypto und Aktien">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TradingJ">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Recharts + React via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* ===== TOKENS ===== */
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2a;
+      --muted:     #2a2a3a;
+      --text:      #e8e8f0;
+      --sub:       #6b6b80;
+      --green:     #00c896;
+      --red:       #ff4d6a;
+      --amber:     #f5a623;
+      --blue:      #3d8ef8;
+      --font-mono: 'Courier New', Courier, monospace;
+      --font-ui:   system-ui, -apple-system, sans-serif;
+      --radius:    6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ===== LAYOUT ===== */
+    #root { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      color: var(--sub);
+      text-transform: uppercase;
+    }
+    .header-logo span { color: var(--green); }
+
+    .header-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--muted);
+      border-radius: var(--radius);
+      padding: 3px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--sub);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: var(--bg);
+      color: var(--text);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    .main { flex: 1; padding: 20px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+    /* ===== KARTEN ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sub);
+      margin-bottom: 12px;
+    }
+
+    /* ===== STATS ROW ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sub);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--sub);
+      margin-top: 4px;
+    }
+
+    .green { color: var(--green); }
+    .red   { color: var(--red); }
+    .amber { color: var(--amber); }
+    .blue  { color: var(--blue); }
+
+    /* ===== FORM ===== */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+
+    .form-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sub);
+    }
+
+    .form-input, .form-select, .form-textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--blue);
+    }
+    .form-select option { background: var(--surface); }
+    .form-textarea { resize: vertical; min-height: 68px; }
+
+    .form-row-full { grid-column: 1 / -1; }
+
+    .btn {
+      background: var(--blue);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 18px;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--sub);
+    }
+    .btn-ghost:hover { border-color: var(--sub); color: var(--text); }
+    .btn-danger {
+      background: none;
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+    /* ===== TRADES TABELLE ===== */
+    .trade-table { width: 100%; border-collapse: collapse; }
+    .trade-table th {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sub);
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .trade-table td {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .trade-table tr:last-child td { border-bottom: none; }
+    .trade-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .trade-table .mono { font-family: var(--font-mono); }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+    .badge-long  { background: rgba(0,200,150,0.15); color: var(--green); }
+    .badge-short { background: rgba(255,77,106,0.15); color: var(--red); }
+    .badge-open  { background: rgba(245,166,35,0.15); color: var(--amber); }
+
+    /* ===== CHART ===== */
+    .chart-wrap { width: 100%; height: 220px; }
+
+    /* ===== EMPTY ===== */
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--sub);
+    }
+    .empty-title { font-size: 15px; margin-bottom: 8px; color: var(--text); }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90dvh;
+      overflow-y: auto;
+    }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 600px) {
+      .header { padding: 12px 14px; }
+      .main { padding: 14px; }
+      .header-tabs .tab-btn { padding: 5px 9px; font-size: 11px; }
+      .stat-value { font-size: 18px; }
+      .overflow-scroll { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+const {
+  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} = Recharts;
+
+// ===== IndexedDB Helper =====
+const DB_NAME = 'trading_journal_v1';
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('trades')) {
+        db.createObjectStore('trades', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function dbGetAll(store) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(store, value) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbDelete(store, key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ===== Utils =====
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+const fmt = (n, decimals = 2) => {
+  const abs = Math.abs(n);
+  const str = abs.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return (n < 0 ? '-' : '') + str;
+};
+
+const fmtCur = (n) => (n >= 0 ? '+' : '') + fmt(n) + ' EUR';
+
+const pnl = (t) => {
+  if (!t.exitPrice) return null;
+  const dir = t.direction === 'long' ? 1 : -1;
+  return dir * (t.exitPrice - t.entryPrice) * t.size * (t.leverage || 1);
+};
+
+const pnlPct = (t) => {
+  if (!t.exitPrice) return null;
+  const dir = t.direction === 'long' ? 1 : -1;
+  return dir * ((t.exitPrice - t.entryPrice) / t.entryPrice) * 100 * (t.leverage || 1);
+};
+
+// ===== NEUE TRADE FORM =====
+const EMPTY_FORM = {
+  date: new Date().toISOString().slice(0, 10),
+  market: '', asset: '',
+  direction: 'long', strategy: '',
+  entryPrice: '', exitPrice: '',
+  size: '', leverage: '1',
+  stopLoss: '', takeProfit: '',
+  fees: '', notes: '',
+};
+
+function TradeForm({ initial, onSave, onClose }) {
+  const [form, setForm] = useState(initial || EMPTY_FORM);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.asset || !form.entryPrice || !form.size) {
+      alert('Asset, Entry-Preis und Groesse sind Pflichtfelder.');
+      return;
+    }
+    const t = {
+      ...form,
+      id: form.id || uid(),
+      entryPrice: parseFloat(form.entryPrice),
+      exitPrice: form.exitPrice ? parseFloat(form.exitPrice) : null,
+      size: parseFloat(form.size),
+      leverage: parseFloat(form.leverage) || 1,
+      stopLoss: form.stopLoss ? parseFloat(form.stopLoss) : null,
+      takeProfit: form.takeProfit ? parseFloat(form.takeProfit) : null,
+      fees: form.fees ? parseFloat(form.fees) : 0,
+    };
+    onSave(t);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">{form.id ? 'Trade bearbeiten' : 'Neuer Trade'}</div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Datum</label>
+            <input type="date" className="form-input" value={form.date} onChange={e => set('date', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Markt</label>
+            <select className="form-select" value={form.market} onChange={e => set('market', e.target.value)}>
+              <option value="">Waehlen...</option>
+              <option>Krypto Spot</option>
+              <option>Krypto Futures</option>
+              <option>Aktien</option>
+              <option>Zertifikat</option>
+              <option>Forex</option>
+              <option>CFD</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Asset / Ticker</label>
+            <input className="form-input" placeholder="z.B. BTC, RKLB" value={form.asset} onChange={e => set('asset', e.target.value.toUpperCase())} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Richtung</label>
+            <select className="form-select" value={form.direction} onChange={e => set('direction', e.target.value)}>
+              <option value="long">Long</option>
+              <option value="short">Short</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Entry-Preis</label>
+            <input type="number" className="form-input" placeholder="0.00" value={form.entryPrice} onChange={e => set('entryPrice', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Exit-Preis (leer = offen)</label>
+            <input type="number" className="form-input" placeholder="0.00" value={form.exitPrice} onChange={e => set('exitPrice', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Groesse</label>
+            <input type="number" className="form-input" placeholder="Einheiten / Kontraktwert" value={form.size} onChange={e => set('size', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Hebel</label>
+            <input type="number" className="form-input" placeholder="1" min="1" value={form.leverage} onChange={e => set('leverage', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Stop Loss</label>
+            <input type="number" className="form-input" placeholder="0.00" value={form.stopLoss} onChange={e => set('stopLoss', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Take Profit</label>
+            <input type="number" className="form-input" placeholder="0.00" value={form.takeProfit} onChange={e => set('takeProfit', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Gebuehren (EUR)</label>
+            <input type="number" className="form-input" placeholder="0.00" value={form.fees} onChange={e => set('fees', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Strategie</label>
+            <input className="form-input" placeholder="z.B. Breakout, Retest" value={form.strategy} onChange={e => set('strategy', e.target.value)} />
+          </div>
+          <div className="form-group form-row-full">
+            <label className="form-label">Notizen</label>
+            <textarea className="form-textarea" placeholder="Setup-Beschreibung, Fehler, Lernpunkte..." value={form.notes} onChange={e => set('notes', e.target.value)} />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn" onClick={handleSave}>Speichern</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== DASHBOARD =====
+function Dashboard({ trades }) {
+  const closed = trades.filter(t => t.exitPrice !== null);
+  const open   = trades.filter(t => t.exitPrice === null);
+
+  const totalPnl    = closed.reduce((s, t) => s + (pnl(t) - (t.fees || 0)), 0);
+  const wins        = closed.filter(t => pnl(t) > 0);
+  const losses      = closed.filter(t => pnl(t) <= 0);
+  const winRate     = closed.length ? (wins.length / closed.length * 100) : 0;
+  const avgWin      = wins.length   ? wins.reduce((s, t) => s + pnl(t), 0) / wins.length : 0;
+  const avgLoss     = losses.length ? losses.reduce((s, t) => s + pnl(t), 0) / losses.length : 0;
+  const rr          = avgLoss ? Math.abs(avgWin / avgLoss) : 0;
+  const profitFactor = losses.length && wins.length
+    ? wins.reduce((s,t) => s+pnl(t),0) / Math.abs(losses.reduce((s,t)=>s+pnl(t),0))
+    : 0;
+
+  // Equity-Kurve
+  const equity = useMemo(() => {
+    const sorted = [...closed].sort((a,b) => a.date.localeCompare(b.date));
+    let running = 0;
+    return sorted.map(t => {
+      running += pnl(t) - (t.fees || 0);
+      return { date: t.date.slice(5), pnl: +running.toFixed(2) };
+    });
+  }, [closed]);
+
+  // Monthly Bar
+  const monthly = useMemo(() => {
+    const map = {};
+    closed.forEach(t => {
+      const m = t.date.slice(0, 7);
+      map[m] = (map[m] || 0) + pnl(t) - (t.fees || 0);
+    });
+    return Object.entries(map).sort().map(([m, v]) => ({ month: m.slice(5), pnl: +v.toFixed(2) }));
+  }, [closed]);
+
+  if (!trades.length) {
+    return (
+      <div className="empty">
+        <div className="empty-title">Noch keine Trades</div>
+        <div>Fuege deinen ersten Trade ueber den Button oben rechts hinzu.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-label">Gesamt P&L</div>
+          <div className={`stat-value ${totalPnl >= 0 ? 'green' : 'red'}`}>{fmt(totalPnl)} EUR</div>
+          <div className="stat-sub">{closed.length} geschlossene Trades</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Win-Rate</div>
+          <div className={`stat-value ${winRate >= 50 ? 'green' : 'red'}`}>{fmt(winRate, 1)}%</div>
+          <div className="stat-sub">{wins.length}W / {losses.length}L</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Profit Factor</div>
+          <div className={`stat-value ${profitFactor >= 1 ? 'green' : 'red'}`}>{fmt(profitFactor, 2)}</div>
+          <div className="stat-sub">RR Ø {fmt(rr, 2)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Offen</div>
+          <div className="stat-value amber">{open.length}</div>
+          <div className="stat-sub">Position{open.length !== 1 ? 'en' : ''}</div>
+        </div>
+      </div>
+
+      {equity.length > 1 && (
+        <div className="card">
+          <div className="card-title">Equity-Kurve (kumuliert, EUR)</div>
+          <div className="chart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={equity} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00c896" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#00c896" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e1e2a" strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fill: '#6b6b80', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#6b6b80', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => fmt(v,0)} />
+                <Tooltip
+                  contentStyle={{ background: '#111118', border: '1px solid #1e1e2a', borderRadius: 6, color: '#e8e8f0', fontSize: 12 }}
+                  formatter={v => [fmt(v) + ' EUR', 'P&L']}
+                />
+                <Area type="monotone" dataKey="pnl" stroke="#00c896" strokeWidth={2} fill="url(#eqGrad)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {monthly.length > 1 && (
+        <div className="card">
+          <div className="card-title">Monatliche P&L (EUR)</div>
+          <div className="chart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthly} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke="#1e1e2a" strokeDasharray="3 3" />
+                <XAxis dataKey="month" tick={{ fill: '#6b6b80', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#6b6b80', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => fmt(v,0)} />
+                <Tooltip
+                  contentStyle={{ background: '#111118', border: '1px solid #1e1e2a', borderRadius: 6, color: '#e8e8f0', fontSize: 12 }}
+                  formatter={v => [fmt(v) + ' EUR', 'P&L']}
+                />
+                <Bar dataKey="pnl" radius={[3,3,0,0]}
+                  fill="#3d8ef8"
+                  label={false}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== TRADE LIST =====
+function TradeList({ trades, onEdit, onDelete }) {
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const filtered = trades
+    .filter(t => {
+      if (filter === 'open')   return t.exitPrice === null;
+      if (filter === 'closed') return t.exitPrice !== null;
+      return true;
+    })
+    .filter(t => !search || t.asset.includes(search.toUpperCase()) || (t.strategy || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        <input className="form-input" style={{ maxWidth:200 }} placeholder="Asset / Strategie suchen" value={search} onChange={e=>setSearch(e.target.value)} />
+        <div className="header-tabs">
+          {['all','open','closed'].map(f => (
+            <button key={f} className={`tab-btn ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>
+              {f==='all'?'Alle':f==='open'?'Offen':'Geschlossen'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty">
+          <div className="empty-title">Keine Trades gefunden</div>
+        </div>
+      ) : (
+        <div className="card" style={{ padding:0, overflowX:'auto' }}>
+          <table className="trade-table">
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Asset</th>
+                <th>Dir.</th>
+                <th>Entry</th>
+                <th>Exit</th>
+                <th>Groesse</th>
+                <th>Hbl</th>
+                <th>P&L</th>
+                <th>%</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t => {
+                const p = pnl(t);
+                const pp = pnlPct(t);
+                const netPnl = p !== null ? p - (t.fees || 0) : null;
+                return (
+                  <tr key={t.id}>
+                    <td className="mono" style={{ color:'var(--sub)', fontSize:12 }}>{t.date}</td>
+                    <td><strong>{t.asset}</strong>{t.market ? <div style={{fontSize:10,color:'var(--sub)'}}>{t.market}</div> : null}</td>
+                    <td><span className={`badge badge-${t.direction}`}>{t.direction}</span></td>
+                    <td className="mono">{fmt(t.entryPrice)}</td>
+                    <td className="mono">{t.exitPrice ? fmt(t.exitPrice) : <span className="badge badge-open">offen</span>}</td>
+                    <td className="mono">{fmt(t.size, 4)}</td>
+                    <td className="mono" style={{color:'var(--sub)'}}>{t.leverage}x</td>
+                    <td className={`mono ${netPnl === null ? '' : netPnl >= 0 ? 'green' : 'red'}`}>
+                      {netPnl !== null ? fmtCur(netPnl) : '--'}
+                    </td>
+                    <td className={`mono ${pp === null ? '' : pp >= 0 ? 'green' : 'red'}`}>
+                      {pp !== null ? (pp >= 0 ? '+' : '') + fmt(pp, 1) + '%' : '--'}
+                    </td>
+                    <td>
+                      <div style={{ display:'flex', gap:4 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={()=>onEdit(t)}>Edit</button>
+                        <button className="btn btn-danger btn-sm" onClick={()=>onDelete(t.id)}>X</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== STATS PAGE =====
+function StatsPage({ trades }) {
+  const closed = trades.filter(t => t.exitPrice !== null);
+
+  // By asset
+  const byAsset = useMemo(() => {
+    const map = {};
+    closed.forEach(t => {
+      if (!map[t.asset]) map[t.asset] = { trades:0, pnl:0 };
+      map[t.asset].trades++;
+      map[t.asset].pnl += pnl(t) - (t.fees||0);
+    });
+    return Object.entries(map).sort((a,b) => b[1].pnl - a[1].pnl).map(([k,v]) => ({ asset:k, ...v, pnl: +v.pnl.toFixed(2) }));
+  }, [closed]);
+
+  // By strategy
+  const byStrategy = useMemo(() => {
+    const map = {};
+    closed.forEach(t => {
+      const s = t.strategy || 'kein Setup';
+      if (!map[s]) map[s] = { trades:0, pnl:0, wins:0 };
+      map[s].trades++;
+      map[s].pnl += pnl(t) - (t.fees||0);
+      if (pnl(t) > 0) map[s].wins++;
+    });
+    return Object.entries(map).sort((a,b) => b[1].pnl - a[1].pnl).map(([k,v]) => ({
+      strategy:k, ...v, pnl: +v.pnl.toFixed(2),
+      wr: +(v.wins/v.trades*100).toFixed(1)
+    }));
+  }, [closed]);
+
+  if (!closed.length) {
+    return <div className="empty"><div className="empty-title">Keine Daten</div><div>Schliesse zuerst einen Trade ab.</div></div>;
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <div className="card-title">Performance nach Asset</div>
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={byAsset} layout="vertical" margin={{ top: 4, right: 40, bottom: 0, left: 40 }}>
+              <CartesianGrid stroke="#1e1e2a" strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tick={{ fill:'#6b6b80', fontSize:10 }} tickFormatter={v=>fmt(v,0)} />
+              <YAxis type="category" dataKey="asset" tick={{ fill:'#e8e8f0', fontSize:11 }} width={50} />
+              <Tooltip
+                contentStyle={{ background:'#111118', border:'1px solid #1e1e2a', borderRadius:6, color:'#e8e8f0', fontSize:12 }}
+                formatter={v => [fmt(v) + ' EUR', 'P&L']}
+              />
+              <Bar dataKey="pnl" radius={[0,3,3,0]}
+                fill="#3d8ef8"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Strategie-Analyse</div>
+        <table className="trade-table" style={{ width:'100%' }}>
+          <thead>
+            <tr>
+              <th>Strategie</th>
+              <th>Trades</th>
+              <th>Win-Rate</th>
+              <th>Net P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {byStrategy.map(s => (
+              <tr key={s.strategy}>
+                <td>{s.strategy}</td>
+                <td className="mono">{s.trades}</td>
+                <td className={`mono ${s.wr >= 50 ? 'green' : 'red'}`}>{s.wr}%</td>
+                <td className={`mono ${s.pnl >= 0 ? 'green' : 'red'}`}>{fmtCur(s.pnl)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===== APP =====
+function App() {
+  const [trades, setTrades]   = useState([]);
+  const [tab, setTab]         = useState('dashboard');
+  const [modal, setModal]     = useState(null); // null | 'new' | trade-object
+  const [loading, setLoading] = useState(true);
+
+  // Laden
+  useEffect(() => {
+    dbGetAll('trades').then(data => {
+      setTrades(data || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const saveTrade = useCallback(async (t) => {
+    await dbPut('trades', t);
+    setTrades(prev => {
+      const idx = prev.findIndex(x => x.id === t.id);
+      return idx >= 0 ? prev.map(x => x.id === t.id ? t : x) : [...prev, t];
+    });
+    setModal(null);
+  }, []);
+
+  const deleteTrade = useCallback(async (id) => {
+    if (!confirm('Trade wirklich loeschen?')) return;
+    await dbDelete('trades', id);
+    setTrades(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(trades, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `trades_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) throw new Error();
+        for (const t of data) await dbPut('trades', t);
+        setTrades(data);
+        alert(`${data.length} Trades importiert.`);
+      } catch { alert('Fehler beim Importieren. Datei muss gueltiges JSON-Array sein.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100dvh', color:'var(--sub)' }}>
+        Lade Daten...
+      </div>
+    );
+  }
+
+  return (
+    <div id="root">
+      <div className="header">
+        <div className="header-logo">TRADING<span>J</span></div>
+        <div className="header-tabs">
+          <button className={`tab-btn ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
+          <button className={`tab-btn ${tab==='trades'?'active':''}`} onClick={()=>setTab('trades')}>Trades</button>
+          <button className={`tab-btn ${tab==='stats'?'active':''}`} onClick={()=>setTab('stats')}>Stats</button>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          <button className="btn btn-ghost btn-sm" onClick={exportJSON} title="JSON exportieren">Export</button>
+          <label className="btn btn-ghost btn-sm" style={{ cursor:'pointer' }} title="JSON importieren">
+            Import<input type="file" accept=".json" style={{ display:'none' }} onChange={importJSON} />
+          </label>
+          <button className="btn btn-sm" onClick={()=>setModal('new')}>+ Trade</button>
+        </div>
+      </div>
+
+      <div className="main">
+        {tab === 'dashboard' && <Dashboard trades={trades} />}
+        {tab === 'trades'    && <TradeList trades={trades} onEdit={t=>setModal(t)} onDelete={deleteTrade} />}
+        {tab === 'stats'     && <StatsPage trades={trades} />}
+      </div>
+
+      {modal && (
+        <TradeForm
+          initial={modal === 'new' ? null : modal}
+          onSave={saveTrade}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('SW registriert:', reg.scope);
+    }).catch(err => console.warn('SW Fehler:', err));
+  });
+}
+</script>
+</body>
+</html>
